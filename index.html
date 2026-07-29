@@ -4,39 +4,46 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cascade</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
             background: #0f0f0f;
             color: #ffffff;
-            font-family: 'Courier New', monospace;
-            min-height: 100vh;
+            font-family: 'Inter', system-ui, sans-serif;
+            height: 100vh;
+            overflow: hidden;
             padding: 24px;
+            display: flex;
+            flex-direction: column;
         }
 
         header {
             display: flex;
             align-items: baseline;
             gap: 16px;
-            margin-bottom: 24px;
+            margin-bottom: 20px;
+            flex-shrink: 0;
         }
 
-        h1 { font-size: 1.3rem; color: #aaaaaa; }
-
+        h1 { font-size: 1.3rem; color: #aaaaaa; font-weight: 500; }
         .subtitle { font-size: 0.75rem; color: #444; }
 
         .layout {
             display: grid;
             grid-template-columns: 300px 1fr;
             gap: 16px;
-            height: calc(100vh - 80px);
+            flex: 1;
+            min-height: 0;
         }
 
         .left {
             display: flex;
             flex-direction: column;
-            gap: 12px;
+            gap: 10px;
+            min-height: 0;
         }
 
         .card {
@@ -44,22 +51,25 @@
             border: 0.5px solid #2a2a2a;
             border-radius: 6px;
             padding: 14px;
+            flex-shrink: 0;
         }
 
         .card-label {
             font-size: 0.68rem;
             color: #555;
             margin-bottom: 10px;
+            font-weight: 500;
+            letter-spacing: 0.03em;
         }
 
         textarea {
             width: 100%;
-            height: 220px;
+            height: 160px;
             background: #111;
             border: 0.5px solid #2a2a2a;
             border-radius: 4px;
             color: #ccc;
-            font-family: 'Courier New', monospace;
+            font-family: 'JetBrains Mono', monospace;
             font-size: 0.8rem;
             padding: 10px;
             resize: none;
@@ -71,6 +81,7 @@
         .btn-row {
             display: flex;
             gap: 6px;
+            margin-top: 10px;
         }
 
         button {
@@ -79,25 +90,33 @@
             border: 0.5px solid #333;
             background: #1a1a1a;
             color: #ccc;
-            font-family: 'Courier New', monospace;
+            font-family: 'Inter', system-ui, sans-serif;
             font-size: 0.78rem;
             cursor: pointer;
             border-radius: 4px;
             transition: background 0.1s;
         }
 
-        button:hover { background: #252525; }
+        button:hover:not(:disabled) { background: #252525; }
 
-        button.active { border-color: #4a9eff; color: #4a9eff; }
-        button.active:hover { background: #0d2a4a; }
-
-        .cycle-display {
-            font-size: 0.75rem;
-            color: #555;
-            padding: 6px 0;
+        button.active {
+            border-color: #4a9eff;
+            color: #4a9eff;
+            background: #0d2a4a;
         }
 
-        .cycle-display span { color: #aaa; font-weight: 500; }
+        button:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .reg-card {
+            background: #1a1a1a;
+            border: 0.5px solid #2a2a2a;
+            border-radius: 6px;
+            padding: 14px;
+            flex-shrink: 0;
+        }
 
         .reg-grid {
             display: grid;
@@ -114,33 +133,48 @@
             border-radius: 3px;
         }
 
-        .reg-name { color: #555; }
-        .reg-val { color: #aaa; }
+        .reg-name { color: #555; font-family: 'JetBrains Mono', monospace; }
+        .reg-val { color: #aaa; font-family: 'JetBrains Mono', monospace; }
         .reg-val.changed { color: #4a9eff; }
+
+        .event-card {
+            background: #1a1a1a;
+            border: 0.5px solid #2a2a2a;
+            border-radius: 6px;
+            padding: 14px;
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+        }
 
         .event-log {
             flex: 1;
             overflow-y: auto;
             display: flex;
             flex-direction: column;
-            gap: 4px;
-            max-height: 160px;
+            gap: 5px;
+            min-height: 0;
         }
 
         .event-item {
-            font-size: 0.7rem;
-            padding: 3px 7px;
-            border-radius: 3px;
+            font-size: 0.72rem;
+            padding: 5px 9px;
+            border-radius: 4px;
+            flex-shrink: 0;
+            line-height: 1.4;
         }
 
-        .event-item.stall { background: #2a1800; color: #cc8830; }
+        .event-item.stall   { background: #2a1800; color: #cc8830; }
         .event-item.forward { background: #001a12; color: #2aaa6e; }
-        .event-item.normal { color: #555; }
+        .event-item.normal  { color: #555; }
 
         .right {
             display: flex;
             flex-direction: column;
             gap: 12px;
+            min-height: 0;
+            min-width: 0;
         }
 
         .pipeline-card {
@@ -148,6 +182,7 @@
             border: 0.5px solid #2a2a2a;
             border-radius: 6px;
             padding: 20px;
+            flex-shrink: 0;
         }
 
         .pipeline {
@@ -159,9 +194,9 @@
 
         .stage {
             border-radius: 6px;
-            padding: 14px 10px;
+            padding: 12px 10px;
             text-align: center;
-            min-height: 100px;
+            min-height: 85px;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -171,45 +206,43 @@
             transition: all 0.2s ease;
         }
 
-        .stage.bubble { background: #111; border-color: #1e1e1e; }
-        .stage.fetch   { background: #0d1e30; border-color: #1a3a5c; }
-        .stage.decode  { background: #1a0d30; border-color: #341a5c; }
-        .stage.execute { background: #0d2a18; border-color: #1a5c34; }
-        .stage.memory  { background: #2a1a0d; border-color: #5c341a; }
+        .stage.bubble    { background: #111;    border-color: #1e1e1e; }
+        .stage.fetch     { background: #0d1e30; border-color: #1a3a5c; }
+        .stage.decode    { background: #1a0d30; border-color: #341a5c; }
+        .stage.execute   { background: #0d2a18; border-color: #1a5c34; }
+        .stage.memory    { background: #2a1a0d; border-color: #5c341a; }
         .stage.writeback { background: #0d2a2a; border-color: #1a5c5c; }
 
         .stage-name {
-            font-size: 0.65rem;
+            font-size: 0.62rem;
             font-weight: 500;
-            letter-spacing: 0.08em;
+            letter-spacing: 0.06em;
+            font-family: 'Inter', system-ui, sans-serif;
         }
 
-        .stage.bubble .stage-name { color: #333; }
-        .stage.fetch .stage-name   { color: #4a9eff; }
-        .stage.decode .stage-name  { color: #a78bfa; }
-        .stage.execute .stage-name { color: #4aff9e; }
-        .stage.memory .stage-name  { color: #ffaa4a; }
+        .stage.bubble .stage-name    { color: #333; }
+        .stage.fetch .stage-name     { color: #4a9eff; }
+        .stage.decode .stage-name    { color: #a78bfa; }
+        .stage.execute .stage-name   { color: #4aff9e; }
+        .stage.memory .stage-name    { color: #ffaa4a; }
         .stage.writeback .stage-name { color: #4affff; }
 
         .instr-pill {
             font-size: 0.75rem;
-            font-family: 'Courier New', monospace;
+            font-family: 'JetBrains Mono', monospace;
             padding: 3px 10px;
             border-radius: 99px;
             font-weight: 500;
         }
 
-        .stage.bubble .instr-pill { background: #1e1e1e; color: #333; }
-        .stage.fetch .instr-pill   { background: #1a3a5c; color: #9fcfff; }
-        .stage.decode .instr-pill  { background: #341a5c; color: #d4b8ff; }
-        .stage.execute .instr-pill { background: #1a5c34; color: #9fffc8; }
-        .stage.memory .instr-pill  { background: #5c341a; color: #ffd49f; }
+        .stage.bubble .instr-pill    { background: #1e1e1e; color: #333; }
+        .stage.fetch .instr-pill     { background: #1a3a5c; color: #9fcfff; }
+        .stage.decode .instr-pill    { background: #341a5c; color: #d4b8ff; }
+        .stage.execute .instr-pill   { background: #1a5c34; color: #9fffc8; }
+        .stage.memory .instr-pill    { background: #5c341a; color: #ffd49f; }
         .stage.writeback .instr-pill { background: #1a5c5c; color: #9fffff; }
 
-        .stage-detail {
-            font-size: 0.65rem;
-            color: #555;
-        }
+        .stage-detail { font-size: 0.65rem; color: #555; font-family: 'JetBrains Mono', monospace; }
 
         .timeline-card {
             background: #1a1a1a;
@@ -217,62 +250,70 @@
             border-radius: 6px;
             padding: 14px;
             flex: 1;
-            overflow: hidden;
+            min-height: 0;
+            min-width: 0;
             display: flex;
             flex-direction: column;
+            overflow: hidden;
         }
 
-        .timeline {
-            overflow-x: auto;
-            overflow-y: hidden;
+        .timeline-scroll {
             flex: 1;
+            min-height: 0;
+            overflow-x: auto;
+            overflow-y: auto;
             margin-top: 10px;
         }
 
         .timeline-grid {
-            display: grid;
-            grid-template-rows: repeat(5, 28px);
-            gap: 4px;
-            min-width: max-content;
+            display: inline-flex;
+            flex-direction: column;
+            gap: 6px;
+            min-width: 100%;
         }
 
         .timeline-row {
             display: flex;
             align-items: center;
             gap: 4px;
+            flex-shrink: 0;
         }
 
         .timeline-label {
             font-size: 0.65rem;
             color: #444;
-            width: 64px;
+            width: 60px;
+            min-width: 60px;
             flex-shrink: 0;
+            font-family: 'JetBrains Mono', monospace;
         }
 
         .timeline-cell {
-            width: 64px;
-            height: 28px;
+            width: 46px;
+            min-width: 46px;
+            height: 32px;
             border-radius: 3px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 0.6rem;
-            font-family: 'Courier New', monospace;
+            font-size: 0.65rem;
+            font-family: 'Inter', system-ui, sans-serif;
+            font-weight: 500;
             flex-shrink: 0;
         }
 
-        .timeline-cell.bubble { background: #111; color: #333; }
-        .timeline-cell.fetch   { background: #0d1e30; color: #4a9eff; border: 0.5px solid #1a3a5c; }
-        .timeline-cell.decode  { background: #1a0d30; color: #a78bfa; border: 0.5px solid #341a5c; }
-        .timeline-cell.execute { background: #0d2a18; color: #4aff9e; border: 0.5px solid #1a5c34; }
-        .timeline-cell.memory  { background: #2a1a0d; color: #ffaa4a; border: 0.5px solid #5c341a; }
+        .timeline-cell.bubble    { background: #111;    color: #2a2a2a; }
+        .timeline-cell.fetch     { background: #0d1e30; color: #4a9eff; border: 0.5px solid #1a3a5c; }
+        .timeline-cell.decode    { background: #1a0d30; color: #a78bfa; border: 0.5px solid #341a5c; }
+        .timeline-cell.execute   { background: #0d2a18; color: #4aff9e; border: 0.5px solid #1a5c34; }
+        .timeline-cell.memory    { background: #2a1a0d; color: #ffaa4a; border: 0.5px solid #5c341a; }
         .timeline-cell.writeback { background: #0d2a2a; color: #4affff; border: 0.5px solid #1a5c5c; }
 
         .error-msg {
             font-size: 0.75rem;
             color: #ff6b6b;
-            padding: 6px 0;
-            min-height: 20px;
+            min-height: 18px;
+            margin-top: 6px;
         }
     </style>
 </head>
@@ -293,20 +334,19 @@ addq %rax, %rbx
 halt</textarea>
             <div class="error-msg" id="error"></div>
             <div class="btn-row">
-                <button onclick="load()">Load</button>
-                <button onclick="step()">Step</button>
-                <button onclick="run()">Run</button>
-                <button onclick="reset()">Reset</button>
+                <button id="btn-load" onclick="load()">Load</button>
+                <button id="btn-step" onclick="step()" disabled>Step</button>
+                <button id="btn-run" onclick="run()" disabled>Run</button>
+                <button id="btn-reset" onclick="reset()" disabled>Reset</button>
             </div>
-            <div class="cycle-display">Cycle <span id="cycleNum">—</span></div>
         </div>
 
-        <div class="card">
+        <div class="reg-card">
             <div class="card-label">Registers</div>
             <div class="reg-grid" id="regGrid"></div>
         </div>
 
-        <div class="card" style="flex:1">
+        <div class="event-card">
             <div class="card-label">Event log</div>
             <div class="event-log" id="eventLog"></div>
         </div>
@@ -314,13 +354,13 @@ halt</textarea>
 
     <div class="right">
         <div class="pipeline-card">
-            <div class="card-label">Pipeline — cycle <span id="pipelineCycle">—</span></div>
+            <div class="card-label">Pipeline Cycle <span id="pipelineCycle">—</span></div>
             <div class="pipeline" id="pipeline"></div>
         </div>
 
         <div class="timeline-card">
             <div class="card-label">Instruction timeline</div>
-            <div class="timeline">
+            <div class="timeline-scroll">
                 <div class="timeline-grid" id="timelineGrid"></div>
             </div>
         </div>
@@ -333,12 +373,26 @@ halt</textarea>
     const STAGE_KEYS  = ['fetch', 'decode', 'execute', 'memory', 'writeback'];
     const REG_NAMES   = ['%rax','%rcx','%rdx','%rbx','%rsp','%rbp','%rsi','%rdi',
                          '%r8','%r9','%r10','%r11','%r12','%r13','%r14'];
+    const BTNS = ['btn-load','btn-step','btn-run','btn-reset'];
 
     let prevRegs = new Array(15).fill(0);
     let source = '';
     let loggedUpToCycle = 0;
+    let loaded = false;
+
+    function setActive(id) {
+        BTNS.forEach(b => document.getElementById(b).classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+    }
+
+    function enableControls() {
+        ['btn-step','btn-run','btn-reset'].forEach(b => {
+            document.getElementById(b).disabled = false;
+        });
+    }
 
     async function load() {
+        setActive('btn-load');
         source = document.getElementById('source').value;
         document.getElementById('error').textContent = '';
         try {
@@ -348,13 +402,12 @@ halt</textarea>
                 body: JSON.stringify({ source })
             });
             const data = await res.json();
-            if (!data.success) {
-                document.getElementById('error').textContent = data.error;
-                return;
-            }
+            if (!data.success) { document.getElementById('error').textContent = data.error; return; }
             prevRegs = new Array(15).fill(0);
             loggedUpToCycle = 0;
             document.getElementById('eventLog').innerHTML = '';
+            enableControls();
+            loaded = true;
             renderState(data.state, false);
         } catch(e) {
             document.getElementById('error').textContent = 'Error: is the server running?';
@@ -362,6 +415,8 @@ halt</textarea>
     }
 
     async function step() {
+        if (!loaded) return;
+        setActive('btn-step');
         try {
             const res = await fetch(`${API}/step`, { method: 'POST' });
             const data = await res.json();
@@ -373,6 +428,8 @@ halt</textarea>
     }
 
     async function run() {
+        if (!loaded) return;
+        setActive('btn-run');
         try {
             const res = await fetch(`${API}/run`, { method: 'POST' });
             const data = await res.json();
@@ -384,6 +441,8 @@ halt</textarea>
     }
 
     async function reset() {
+        if (!loaded) return;
+        setActive('btn-reset');
         source = document.getElementById('source').value;
         try {
             const res = await fetch(`${API}/reset`, {
@@ -403,18 +462,15 @@ halt</textarea>
     }
 
     function renderState(state, allEvents) {
-        document.getElementById('cycleNum').textContent = state.cycle;
         document.getElementById('pipelineCycle').textContent = state.cycle;
-
         renderPipeline(state.stages);
         renderRegisters(state.registers);
         renderTimeline(state.history);
 
         if (allEvents) {
             state.history.forEach(snap => {
-                if (snap.cycle >= loggedUpToCycle && snap.events.length > 0) {
+                if (snap.cycle >= loggedUpToCycle && snap.events.length > 0)
                     renderEvents(snap.events, snap.cycle);
-                }
             });
             loggedUpToCycle = state.cycle;
         } else {
@@ -431,29 +487,22 @@ halt</textarea>
     function renderPipeline(stages) {
         const container = document.getElementById('pipeline');
         container.innerHTML = '';
-
         STAGE_KEYS.forEach((key, i) => {
             const s = stages[key];
             const isBubble = s.is_bubble || s.mnemonic === 'bubble';
             const cls = isBubble ? 'bubble' : key;
-
             const div = document.createElement('div');
             div.className = `stage ${cls}`;
-
             const label = document.createElement('div');
             label.className = 'stage-name';
             label.textContent = STAGE_NAMES[i].toUpperCase();
-
             const pill = document.createElement('div');
             pill.className = 'instr-pill';
             pill.textContent = isBubble ? '—' : s.mnemonic;
-
             const detail = document.createElement('div');
             detail.className = 'stage-detail';
-            if (!isBubble && s.addr !== null) {
+            if (!isBubble && s.addr !== null)
                 detail.textContent = `0x${s.addr.toString(16).padStart(3,'0')}`;
-            }
-
             div.appendChild(label);
             div.appendChild(pill);
             div.appendChild(detail);
@@ -490,31 +539,26 @@ halt</textarea>
     function renderTimeline(history) {
         const grid = document.getElementById('timelineGrid');
         grid.innerHTML = '';
-
         const instrRows = {};
-
         history.forEach(snap => {
             STAGE_KEYS.forEach(key => {
                 const s = snap.stages[key];
                 if (!s.is_bubble && s.mnemonic !== 'bubble' && s.addr !== null) {
                     const id = `0x${s.addr.toString(16).padStart(3,'0')}:${s.mnemonic}`;
-                    if (!instrRows[id]) instrRows[id] = { label: `${s.mnemonic}`, cells: {} };
+                    if (!instrRows[id]) instrRows[id] = { label: s.mnemonic, cells: {} };
                     instrRows[id].cells[snap.cycle] = key;
                 }
             });
         });
 
         const maxCycle = history.length;
-
         Object.entries(instrRows).forEach(([id, row]) => {
             const rowDiv = document.createElement('div');
             rowDiv.className = 'timeline-row';
-
             const labelDiv = document.createElement('div');
             labelDiv.className = 'timeline-label';
             labelDiv.textContent = row.label;
             rowDiv.appendChild(labelDiv);
-
             for (let c = 0; c < maxCycle; c++) {
                 const cell = document.createElement('div');
                 const stage = row.cells[c];
@@ -522,7 +566,6 @@ halt</textarea>
                 cell.textContent = stage ? stage.slice(0,2).toUpperCase() : '';
                 rowDiv.appendChild(cell);
             }
-
             grid.appendChild(rowDiv);
         });
     }
