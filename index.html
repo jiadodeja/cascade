@@ -143,7 +143,6 @@
             gap: 12px;
         }
 
-        /* Pipeline visualization */
         .pipeline-card {
             background: #1a1a1a;
             border: 0.5px solid #2a2a2a;
@@ -212,7 +211,6 @@
             color: #555;
         }
 
-        /* History timeline */
         .timeline-card {
             background: #1a1a1a;
             border: 0.5px solid #2a2a2a;
@@ -338,6 +336,8 @@ halt</textarea>
 
     let prevRegs = new Array(15).fill(0);
     let source = '';
+    // Track how many history snapshots we've already logged
+    let loggedUpToCycle = 0;
 
     async function load() {
         source = document.getElementById('source').value;
@@ -354,8 +354,9 @@ halt</textarea>
                 return;
             }
             prevRegs = new Array(15).fill(0);
+            loggedUpToCycle = 0;
             document.getElementById('eventLog').innerHTML = '';
-            renderState(data.state);
+            renderState(data.state, false);
         } catch(e) {
             document.getElementById('error').textContent = 'Error: is the server running?';
         }
@@ -366,7 +367,7 @@ halt</textarea>
             const res = await fetch(`${API}/step`, { method: 'POST' });
             const data = await res.json();
             if (!data.success) { document.getElementById('error').textContent = data.error; return; }
-            renderState(data.state);
+            renderState(data.state, false);
         } catch(e) {
             document.getElementById('error').textContent = 'Error: is the server running?';
         }
@@ -377,7 +378,7 @@ halt</textarea>
             const res = await fetch(`${API}/run`, { method: 'POST' });
             const data = await res.json();
             if (!data.success) { document.getElementById('error').textContent = data.error; return; }
-            renderState(data.state);
+            renderState(data.state, true);
         } catch(e) {
             document.getElementById('error').textContent = 'Error: is the server running?';
         }
@@ -394,14 +395,15 @@ halt</textarea>
             const data = await res.json();
             if (!data.success) { document.getElementById('error').textContent = data.error; return; }
             prevRegs = new Array(15).fill(0);
+            loggedUpToCycle = 0;
             document.getElementById('eventLog').innerHTML = '';
-            renderState(data.state);
+            renderState(data.state, false);
         } catch(e) {
             document.getElementById('error').textContent = 'Error: is the server running?';
         }
     }
 
-    function renderState(state) {
+    function renderState(state, allEvents) {
         document.getElementById('cycleNum').textContent = state.cycle;
         document.getElementById('pipelineCycle').textContent = state.cycle;
 
@@ -409,9 +411,21 @@ halt</textarea>
         renderRegisters(state.registers);
         renderTimeline(state.history);
 
-        const lastSnap = state.history[state.history.length - 1];
-        if (lastSnap && lastSnap.events.length > 0) {
-            renderEvents(lastSnap.events, state.cycle);
+        if (allEvents) {
+            // Render all events from history we haven't logged yet
+            state.history.forEach(snap => {
+                if (snap.cycle >= loggedUpToCycle && snap.events.length > 0) {
+                    renderEvents(snap.events, snap.cycle);
+                }
+            });
+            loggedUpToCycle = state.cycle;
+        } else {
+            // Just render the latest cycle's events
+            const lastSnap = state.history[state.history.length - 1];
+            if (lastSnap && lastSnap.events.length > 0) {
+                renderEvents(lastSnap.events, lastSnap.cycle);
+                loggedUpToCycle = state.cycle;
+            }
         }
 
         prevRegs = state.registers.slice();
@@ -472,15 +486,14 @@ halt</textarea>
             item.className = `event-item ${ev.type}`;
             item.textContent = `Cycle ${cycle}: ${ev.msg}`;
             log.appendChild(item);
-            log.scrollTop = log.scrollHeight;
         });
+        log.scrollTop = log.scrollHeight;
     }
 
     function renderTimeline(history) {
         const grid = document.getElementById('timelineGrid');
         grid.innerHTML = '';
 
-        // Build per-instruction timeline rows
         const instrRows = {};
 
         history.forEach(snap => {
