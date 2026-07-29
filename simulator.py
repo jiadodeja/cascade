@@ -281,7 +281,7 @@ class Simulator:
                 events.append({'type': 'forward', 'msg': f'Forwarding {name} = {mem_wb.val_e} from MEM/WB'})
             if mem_wb.dst_m != 0xF:
                 name = REGISTER_NAMES.get(mem_wb.dst_m, f'r{mem_wb.dst_m}')
-                events.append({'type': 'forward', 'msg': f'Forwarding {name} = {mem_wb.val_m} from MEM/WB(load)'})
+                events.append({'type': 'forward', 'msg': f'Forwarding {name} = {mem_wb.val_m} from MEM/WB load'})
         return events
 
     def step(self):
@@ -330,7 +330,7 @@ class Simulator:
                 new_id_ex = PipelineRegister()
                 events.append({
                     'type': 'stall',
-                    'msg': f'Branch taken — jumping to 0x{new_ex_mem.val_c:03x}'
+                    'msg': f'Branch taken. Jumping to 0x{new_ex_mem.val_c:03x}'
                 })
 
         if stall:

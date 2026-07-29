@@ -70,12 +70,12 @@
 
         .btn-row {
             display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
+            gap: 6px;
         }
 
         button {
-            padding: 7px 16px;
+            flex: 1;
+            padding: 7px 8px;
             border: 0.5px solid #333;
             background: #1a1a1a;
             color: #ccc;
@@ -88,8 +88,8 @@
 
         button:hover { background: #252525; }
 
-        button.primary { border-color: #4a9eff; color: #4a9eff; }
-        button.primary:hover { background: #0d2a4a; }
+        button.active { border-color: #4a9eff; color: #4a9eff; }
+        button.active:hover { background: #0d2a4a; }
 
         .cycle-display {
             font-size: 0.75rem;
@@ -293,7 +293,7 @@ addq %rax, %rbx
 halt</textarea>
             <div class="error-msg" id="error"></div>
             <div class="btn-row">
-                <button class="primary" onclick="load()">Load</button>
+                <button onclick="load()">Load</button>
                 <button onclick="step()">Step</button>
                 <button onclick="run()">Run</button>
                 <button onclick="reset()">Reset</button>
@@ -336,7 +336,6 @@ halt</textarea>
 
     let prevRegs = new Array(15).fill(0);
     let source = '';
-    // Track how many history snapshots we've already logged
     let loggedUpToCycle = 0;
 
     async function load() {
@@ -412,7 +411,6 @@ halt</textarea>
         renderTimeline(state.history);
 
         if (allEvents) {
-            // Render all events from history we haven't logged yet
             state.history.forEach(snap => {
                 if (snap.cycle >= loggedUpToCycle && snap.events.length > 0) {
                     renderEvents(snap.events, snap.cycle);
@@ -420,7 +418,6 @@ halt</textarea>
             });
             loggedUpToCycle = state.cycle;
         } else {
-            // Just render the latest cycle's events
             const lastSnap = state.history[state.history.length - 1];
             if (lastSnap && lastSnap.events.length > 0) {
                 renderEvents(lastSnap.events, lastSnap.cycle);
@@ -530,7 +527,6 @@ halt</textarea>
         });
     }
 
-    // Init registers on load
     renderRegisters(new Array(15).fill(0));
 </script>
 </body>
