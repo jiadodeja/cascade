@@ -241,7 +241,6 @@ class Simulator:
         elif m == 'pushq':
             self.write_mem_int64(ex_mem.val_e, ex_mem.val_a)
         elif m == 'call':
-            # Return address = address of instruction after call = call_addr + 9
             return_addr = ex_mem.addr + 9
             self.write_mem_int64(ex_mem.val_e, return_addr)
         elif m == 'mrmovq':
@@ -249,7 +248,6 @@ class Simulator:
         elif m == 'popq':
             pr.val_m = self.read_mem_int64(ex_mem.val_e - 8)
         elif m == 'ret':
-            # Read return address from old %rsp = val_e - 8
             pr.val_m = self.read_mem_int64(ex_mem.val_e - 8)
 
         return pr
@@ -334,25 +332,26 @@ class Simulator:
         new_id_ex  = self.decode(self.if_id)
         new_if_id  = self.fetch()
 
-        # call: redirect to function after execute, flush speculative fetches
-        if not new_ex_mem.is_bubble and new_ex_mem.mnemonic == 'call':
+        # Priority: ret > call > conditional jump
+        # ret: return address known after memory stage — highest priority flush
+        if not new_mem_wb.is_bubble and new_mem_wb.mnemonic == 'ret':
+            self.pc = new_mem_wb.val_m
+            self.halted = False
+            new_if_id  = PipelineRegister()
+            new_id_ex  = PipelineRegister()
+            new_ex_mem = PipelineRegister()
+            events.append({'type': 'stall', 'msg': f'Return to 0x{new_mem_wb.val_m:03x}'})
+
+        # call: redirect to function after execute
+        elif not new_ex_mem.is_bubble and new_ex_mem.mnemonic == 'call':
             self.pc = new_ex_mem.val_c
             self.halted = False
             new_if_id = PipelineRegister()
             new_id_ex = PipelineRegister()
             events.append({'type': 'stall', 'msg': f'Call to 0x{new_ex_mem.val_c:03x}. Flushing pipeline'})
 
-        # ret: return address available after memory stage, flush pipeline
-        if not new_mem_wb.is_bubble and new_mem_wb.mnemonic == 'ret':
-            self.pc = new_mem_wb.val_m
-            self.halted = False
-            new_if_id = PipelineRegister()
-            new_id_ex = PipelineRegister()
-            new_ex_mem = PipelineRegister()
-            events.append({'type': 'stall', 'msg': f'Return to 0x{new_mem_wb.val_m:03x}'})
-
         # conditional jumps
-        if not new_ex_mem.is_bubble and new_ex_mem.mnemonic in JUMP_MNEMONICS:
+        elif not new_ex_mem.is_bubble and new_ex_mem.mnemonic in JUMP_MNEMONICS:
             if new_ex_mem.cnd:
                 self.pc = new_ex_mem.val_c
                 self.halted = False
@@ -445,6 +444,15 @@ add:
     addq %rax, %rbx
     ret
 """, {'%rax': 10, '%rbx': 30, '%rsp': 256}),
+        ("call/ret double", """
+irmovq $0x200, %rsp
+call double
+halt
+double:
+    irmovq $10, %rax
+    addq %rax, %rax
+    ret
+""", {'%rax': 20, '%rsp': 0x200}),
     ]
 
     for name, source, expected in tests:
