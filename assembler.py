@@ -47,6 +47,14 @@ def parse_immediate(token):
     return int(token, 0)
 
 
+def resolve_target(token, symbols):
+    """Resolve a jump/call target — either a label name or a numeric address."""
+    token = token.strip()
+    if token in symbols:
+        return symbols[token]
+    return parse_immediate(token)
+
+
 def parse_mem_operand(token):
     token = token.strip()
     if '(' in token:
@@ -69,7 +77,7 @@ def assemble(source):
         if not line or line.startswith('#'):
             continue
         if line.endswith(':'):
-            symbols[line[:-1]] = pc
+            symbols[line[:-1].strip()] = pc
             continue
         if ':' in line.split()[0]:
             label, rest = line.split(':', 1)
@@ -132,8 +140,7 @@ def assemble(source):
             bytes_out.append((rA << 4) | rB)
 
         elif mnemonic in ('jmp', 'jle', 'jl', 'je', 'jne', 'jge', 'jg', 'call'):
-            dest = args[0]
-            target = symbols.get(dest, parse_immediate(dest))
+            target = resolve_target(args[0], symbols)
             bytes_out.extend(encode_int64(target))
 
         elif mnemonic == 'pushq':
@@ -160,9 +167,13 @@ def assemble(source):
 
 if __name__ == '__main__':
     source = """
-irmovq $10, %rax
-irmovq $20, %rbx
-addq %rax, %rbx
+irmovq $5, %rcx
+irmovq $0, %rax
+loop:
+    addq %rcx, %rax
+    irmovq $1, %rbx
+    subq %rbx, %rcx
+    jne loop
 halt
 """
     memory, symbols, decoded = assemble(source)

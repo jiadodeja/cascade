@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cascade</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: #0f0f0f;
+            color: #ffffff;
+            font-family: 'Courier New', monospace;
+            min-height: 100vh;
+            padding: 24px;
+        }
+
+        header {
+            display: flex;
+            align-items: baseline;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        h1 { font-size: 1.3rem; color: #aaaaaa; }
+
+        .subtitle { font-size: 0.75rem; color: #444; }
+
+        .layout {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 16px;
+            height: calc(100vh - 80px);
+        }
+
+        .left {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .card {
+            background: #1a1a1a;
+            border: 0.5px solid #2a2a2a;
+            border-radius: 6px;
+            padding: 14px;
+        }
+
+        .card-label {
+            font-size: 0.68rem;
+            color: #555;
+            margin-bottom: 10px;
+        }
+
+        textarea {
+            width: 100%;
+            height: 220px;
+            background: #111;
+            border: 0.5px solid #2a2a2a;
+            border-radius: 4px;
+            color: #ccc;
+            font-family: 'Courier New', monospace;
+            font-size: 0.8rem;
+            padding: 10px;
+            resize: none;
+            line-height: 1.6;
+        }
+
+        textarea:focus { outline: none; border-color: #444; }
+
+        .btn-row {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 7px 16px;
+            border: 0.5px solid #333;
+            background: #1a1a1a;
+            color: #ccc;
+            font-family: 'Courier New', monospace;
+            font-size: 0.78rem;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: background 0.1s;
+        }
+
+        button:hover { background: #252525; }
+
+        button.primary { border-color: #4a9eff; color: #4a9eff; }
+        button.primary:hover { background: #0d2a4a; }
+
+        .cycle-display {
+            font-size: 0.75rem;
+            color: #555;
+            padding: 6px 0;
+        }
+
+        .cycle-display span { color: #aaa; font-weight: 500; }
+
+        .reg-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 5px;
+        }
+
+        .reg-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.72rem;
+            padding: 3px 6px;
+            background: #111;
+            border-radius: 3px;
+        }
+
+        .reg-name { color: #555; }
+        .reg-val { color: #aaa; }
+        .reg-val.changed { color: #4a9eff; }
+
+        .event-log {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            max-height: 160px;
+        }
+
+        .event-item {
+            font-size: 0.7rem;
+            padding: 3px 7px;
+            border-radius: 3px;
+        }
+
+        .event-item.stall { background: #2a1800; color: #cc8830; }
+        .event-item.forward { background: #001a12; color: #2aaa6e; }
+        .event-item.normal { color: #555; }
+
+        .right {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        /* Pipeline visualization */
+        .pipeline-card {
+            background: #1a1a1a;
+            border: 0.5px solid #2a2a2a;
+            border-radius: 6px;
+            padding: 20px;
+        }
+
+        .pipeline {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 10px;
+            margin-top: 12px;
+        }
+
+        .stage {
+            border-radius: 6px;
+            padding: 14px 10px;
+            text-align: center;
+            min-height: 100px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            border: 0.5px solid #2a2a2a;
+            transition: all 0.2s ease;
+        }
+
+        .stage.bubble { background: #111; border-color: #1e1e1e; }
+        .stage.fetch   { background: #0d1e30; border-color: #1a3a5c; }
+        .stage.decode  { background: #1a0d30; border-color: #341a5c; }
+        .stage.execute { background: #0d2a18; border-color: #1a5c34; }
+        .stage.memory  { background: #2a1a0d; border-color: #5c341a; }
+        .stage.writeback { background: #0d2a2a; border-color: #1a5c5c; }
+
+        .stage-name {
+            font-size: 0.65rem;
+            font-weight: 500;
+            letter-spacing: 0.08em;
+        }
+
+        .stage.bubble .stage-name { color: #333; }
+        .stage.fetch .stage-name   { color: #4a9eff; }
+        .stage.decode .stage-name  { color: #a78bfa; }
+        .stage.execute .stage-name { color: #4aff9e; }
+        .stage.memory .stage-name  { color: #ffaa4a; }
+        .stage.writeback .stage-name { color: #4affff; }
+
+        .instr-pill {
+            font-size: 0.75rem;
+            font-family: 'Courier New', monospace;
+            padding: 3px 10px;
+            border-radius: 99px;
+            font-weight: 500;
+        }
+
+        .stage.bubble .instr-pill { background: #1e1e1e; color: #333; }
+        .stage.fetch .instr-pill   { background: #1a3a5c; color: #9fcfff; }
+        .stage.decode .instr-pill  { background: #341a5c; color: #d4b8ff; }
+        .stage.execute .instr-pill { background: #1a5c34; color: #9fffc8; }
+        .stage.memory .instr-pill  { background: #5c341a; color: #ffd49f; }
+        .stage.writeback .instr-pill { background: #1a5c5c; color: #9fffff; }
+
+        .stage-detail {
+            font-size: 0.65rem;
+            color: #555;
+        }
+
+        /* History timeline */
+        .timeline-card {
+            background: #1a1a1a;
+            border: 0.5px solid #2a2a2a;
+            border-radius: 6px;
+            padding: 14px;
+            flex: 1;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .timeline {
+            overflow-x: auto;
+            overflow-y: hidden;
+            flex: 1;
+            margin-top: 10px;
+        }
+
+        .timeline-grid {
+            display: grid;
+            grid-template-rows: repeat(5, 28px);
+            gap: 4px;
+            min-width: max-content;
+        }
+
+        .timeline-row {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .timeline-label {
+            font-size: 0.65rem;
+            color: #444;
+            width: 64px;
+            flex-shrink: 0;
+        }
+
+        .timeline-cell {
+            width: 64px;
+            height: 28px;
+            border-radius: 3px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.6rem;
+            font-family: 'Courier New', monospace;
+            flex-shrink: 0;
+        }
+
+        .timeline-cell.bubble { background: #111; color: #333; }
+        .timeline-cell.fetch   { background: #0d1e30; color: #4a9eff; border: 0.5px solid #1a3a5c; }
+        .timeline-cell.decode  { background: #1a0d30; color: #a78bfa; border: 0.5px solid #341a5c; }
+        .timeline-cell.execute { background: #0d2a18; color: #4aff9e; border: 0.5px solid #1a5c34; }
+        .timeline-cell.memory  { background: #2a1a0d; color: #ffaa4a; border: 0.5px solid #5c341a; }
+        .timeline-cell.writeback { background: #0d2a2a; color: #4affff; border: 0.5px solid #1a5c5c; }
+
+        .error-msg {
+            font-size: 0.75rem;
+            color: #ff6b6b;
+            padding: 6px 0;
+            min-height: 20px;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>Cascade</h1>
+    <span class="subtitle">Y86-64 PIPE simulator</span>
+</header>
+
+<div class="layout">
+    <div class="left">
+        <div class="card">
+            <div class="card-label">Assembly input</div>
+            <textarea id="source" spellcheck="false">irmovq $10, %rax
+irmovq $20, %rbx
+addq %rax, %rbx
+halt</textarea>
+            <div class="error-msg" id="error"></div>
+            <div class="btn-row">
+                <button class="primary" onclick="load()">Load</button>
+                <button onclick="step()">Step</button>
+                <button onclick="run()">Run</button>
+                <button onclick="reset()">Reset</button>
+            </div>
+            <div class="cycle-display">Cycle <span id="cycleNum">—</span></div>
+        </div>
+
+        <div class="card">
+            <div class="card-label">Registers</div>
+            <div class="reg-grid" id="regGrid"></div>
+        </div>
+
+        <div class="card" style="flex:1">
+            <div class="card-label">Event log</div>
+            <div class="event-log" id="eventLog"></div>
+        </div>
+    </div>
+
+    <div class="right">
+        <div class="pipeline-card">
+            <div class="card-label">Pipeline — cycle <span id="pipelineCycle">—</span></div>
+            <div class="pipeline" id="pipeline"></div>
+        </div>
+
+        <div class="timeline-card">
+            <div class="card-label">Instruction timeline</div>
+            <div class="timeline">
+                <div class="timeline-grid" id="timelineGrid"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const API = 'http://localhost:5001';
+    const STAGE_NAMES = ['Fetch', 'Decode', 'Execute', 'Memory', 'Writeback'];
+    const STAGE_KEYS  = ['fetch', 'decode', 'execute', 'memory', 'writeback'];
+    const REG_NAMES   = ['%rax','%rcx','%rdx','%rbx','%rsp','%rbp','%rsi','%rdi',
+                         '%r8','%r9','%r10','%r11','%r12','%r13','%r14'];
+
+    let prevRegs = new Array(15).fill(0);
+    let source = '';
+
+    async function load() {
+        source = document.getElementById('source').value;
+        document.getElementById('error').textContent = '';
+        try {
+            const res = await fetch(`${API}/assemble`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ source })
+            });
+            const data = await res.json();
+            if (!data.success) {
+                document.getElementById('error').textContent = data.error;
+                return;
+            }
+            prevRegs = new Array(15).fill(0);
+            document.getElementById('eventLog').innerHTML = '';
+            renderState(data.state);
+        } catch(e) {
+            document.getElementById('error').textContent = 'Error: is the server running?';
+        }
+    }
+
+    async function step() {
+        try {
+            const res = await fetch(`${API}/step`, { method: 'POST' });
+            const data = await res.json();
+            if (!data.success) { document.getElementById('error').textContent = data.error; return; }
+            renderState(data.state);
+        } catch(e) {
+            document.getElementById('error').textContent = 'Error: is the server running?';
+        }
+    }
+
+    async function run() {
+        try {
+            const res = await fetch(`${API}/run`, { method: 'POST' });
+            const data = await res.json();
+            if (!data.success) { document.getElementById('error').textContent = data.error; return; }
+            renderState(data.state);
+        } catch(e) {
+            document.getElementById('error').textContent = 'Error: is the server running?';
+        }
+    }
+
+    async function reset() {
+        source = document.getElementById('source').value;
+        try {
+            const res = await fetch(`${API}/reset`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ source })
+            });
+            const data = await res.json();
+            if (!data.success) { document.getElementById('error').textContent = data.error; return; }
+            prevRegs = new Array(15).fill(0);
+            document.getElementById('eventLog').innerHTML = '';
+            renderState(data.state);
+        } catch(e) {
+            document.getElementById('error').textContent = 'Error: is the server running?';
+        }
+    }
+
+    function renderState(state) {
+        document.getElementById('cycleNum').textContent = state.cycle;
+        document.getElementById('pipelineCycle').textContent = state.cycle;
+
+        renderPipeline(state.stages);
+        renderRegisters(state.registers);
+        renderTimeline(state.history);
+
+        const lastSnap = state.history[state.history.length - 1];
+        if (lastSnap && lastSnap.events.length > 0) {
+            renderEvents(lastSnap.events, state.cycle);
+        }
+
+        prevRegs = state.registers.slice();
+    }
+
+    function renderPipeline(stages) {
+        const container = document.getElementById('pipeline');
+        container.innerHTML = '';
+
+        STAGE_KEYS.forEach((key, i) => {
+            const s = stages[key];
+            const isBubble = s.is_bubble || s.mnemonic === 'bubble';
+            const cls = isBubble ? 'bubble' : key;
+
+            const div = document.createElement('div');
+            div.className = `stage ${cls}`;
+
+            const label = document.createElement('div');
+            label.className = 'stage-name';
+            label.textContent = STAGE_NAMES[i].toUpperCase();
+
+            const pill = document.createElement('div');
+            pill.className = 'instr-pill';
+            pill.textContent = isBubble ? '—' : s.mnemonic;
+
+            const detail = document.createElement('div');
+            detail.className = 'stage-detail';
+            if (!isBubble && s.addr !== null) {
+                detail.textContent = `0x${s.addr.toString(16).padStart(3,'0')}`;
+            }
+
+            div.appendChild(label);
+            div.appendChild(pill);
+            div.appendChild(detail);
+            container.appendChild(div);
+        });
+    }
+
+    function renderRegisters(regs) {
+        const grid = document.getElementById('regGrid');
+        grid.innerHTML = '';
+        REG_NAMES.forEach((name, i) => {
+            const row = document.createElement('div');
+            row.className = 'reg-row';
+            const changed = regs[i] !== prevRegs[i];
+            row.innerHTML = `
+                <span class="reg-name">${name}</span>
+                <span class="reg-val ${changed ? 'changed' : ''}">0x${regs[i].toString(16).padStart(4,'0')}</span>
+            `;
+            grid.appendChild(row);
+        });
+    }
+
+    function renderEvents(events, cycle) {
+        const log = document.getElementById('eventLog');
+        events.forEach(ev => {
+            const item = document.createElement('div');
+            item.className = `event-item ${ev.type}`;
+            item.textContent = `Cycle ${cycle}: ${ev.msg}`;
+            log.appendChild(item);
+            log.scrollTop = log.scrollHeight;
+        });
+    }
+
+    function renderTimeline(history) {
+        const grid = document.getElementById('timelineGrid');
+        grid.innerHTML = '';
+
+        // Build per-instruction timeline rows
+        const instrRows = {};
+
+        history.forEach(snap => {
+            STAGE_KEYS.forEach(key => {
+                const s = snap.stages[key];
+                if (!s.is_bubble && s.mnemonic !== 'bubble' && s.addr !== null) {
+                    const id = `0x${s.addr.toString(16).padStart(3,'0')}:${s.mnemonic}`;
+                    if (!instrRows[id]) instrRows[id] = { label: `${s.mnemonic}`, cells: {} };
+                    instrRows[id].cells[snap.cycle] = key;
+                }
+            });
+        });
+
+        const maxCycle = history.length;
+
+        Object.entries(instrRows).forEach(([id, row]) => {
+            const rowDiv = document.createElement('div');
+            rowDiv.className = 'timeline-row';
+
+            const labelDiv = document.createElement('div');
+            labelDiv.className = 'timeline-label';
+            labelDiv.textContent = row.label;
+            rowDiv.appendChild(labelDiv);
+
+            for (let c = 0; c < maxCycle; c++) {
+                const cell = document.createElement('div');
+                const stage = row.cells[c];
+                cell.className = `timeline-cell ${stage || 'bubble'}`;
+                cell.textContent = stage ? stage.slice(0,2).toUpperCase() : '';
+                rowDiv.appendChild(cell);
+            }
+
+            grid.appendChild(rowDiv);
+        });
+    }
+
+    // Init registers on load
+    renderRegisters(new Array(15).fill(0));
+</script>
+</body>
+</html>
