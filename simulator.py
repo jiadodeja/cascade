@@ -88,7 +88,6 @@ class Simulator:
             self.registers[rid] = val & 0xFFFFFFFFFFFFFFFF
 
     def forward_val(self, rid, ex_mem, mem_wb):
-        """Forward a register value from pipeline registers or register file."""
         if rid == 0xF:
             return 0
         if not ex_mem.is_bubble and ex_mem.dst_e == rid:
@@ -151,7 +150,6 @@ class Simulator:
         return pr
 
     def decode(self, if_id):
-        """Decode reads register IDs and raw values. Forwarding happens in execute."""
         pr = PipelineRegister()
         if if_id.is_bubble:
             return pr
@@ -164,7 +162,6 @@ class Simulator:
         pr.is_bubble = False
         pr.is_halt   = if_id.is_halt
 
-        # Read raw register values — forwarding applied in execute
         pr.val_a = self.read_reg(if_id.rA)
         pr.val_b = self.read_reg(if_id.rB)
 
@@ -174,7 +171,6 @@ class Simulator:
         return pr
 
     def execute(self, id_ex, ex_mem, mem_wb):
-        """Execute applies forwarding just before ALU computation."""
         pr = PipelineRegister()
         if id_ex.is_bubble:
             return pr
@@ -191,11 +187,9 @@ class Simulator:
 
         m = id_ex.mnemonic
 
-        # Apply forwarding for all instructions including stack
-        # Stack instructions need rA forwarded normally, and %rsp (reg 4) for val_b
         a = self.forward_val(id_ex.rA, ex_mem, mem_wb)
         if m in STACK_MNEMONICS:
-            b = self.forward_val(4, ex_mem, mem_wb)  # always use %rsp
+            b = self.forward_val(4, ex_mem, mem_wb)
         else:
             b = self.forward_val(id_ex.rB, ex_mem, mem_wb)
 
@@ -245,18 +239,17 @@ class Simulator:
         if m == 'rmmovq':
             self.write_mem_int64(ex_mem.val_e, ex_mem.val_a)
         elif m == 'pushq':
-            # val_e = new %rsp (old-8), val_a = value being pushed
             self.write_mem_int64(ex_mem.val_e, ex_mem.val_a)
         elif m == 'call':
-            # val_e = new %rsp (old-8), write return address there
-            self.write_mem_int64(ex_mem.val_e, self.pc)
+            # Return address = address of instruction after call = call_addr + 9
+            return_addr = ex_mem.addr + 9
+            self.write_mem_int64(ex_mem.val_e, return_addr)
         elif m == 'mrmovq':
             pr.val_m = self.read_mem_int64(ex_mem.val_e)
         elif m == 'popq':
-            # val_e = new %rsp (old+8), read from old %rsp = val_e - 8
             pr.val_m = self.read_mem_int64(ex_mem.val_e - 8)
         elif m == 'ret':
-            # val_e = new %rsp (old+8), return address at old %rsp = val_e - 8
+            # Read return address from old %rsp = val_e - 8
             pr.val_m = self.read_mem_int64(ex_mem.val_e - 8)
 
         return pr
@@ -312,7 +305,6 @@ class Simulator:
 
         events = []
 
-        # Load-use hazard: mrmovq/popq result needed by next instruction
         stall = False
         if not self.if_id.is_bubble and not self.id_ex.is_bubble:
             if self.id_ex.mnemonic in ('mrmovq', 'popq'):
@@ -342,7 +334,24 @@ class Simulator:
         new_id_ex  = self.decode(self.if_id)
         new_if_id  = self.fetch()
 
-        # Branch resolution after execute
+        # call: redirect to function after execute, flush speculative fetches
+        if not new_ex_mem.is_bubble and new_ex_mem.mnemonic == 'call':
+            self.pc = new_ex_mem.val_c
+            self.halted = False
+            new_if_id = PipelineRegister()
+            new_id_ex = PipelineRegister()
+            events.append({'type': 'stall', 'msg': f'Call to 0x{new_ex_mem.val_c:03x}. Flushing pipeline'})
+
+        # ret: return address available after memory stage, flush pipeline
+        if not new_mem_wb.is_bubble and new_mem_wb.mnemonic == 'ret':
+            self.pc = new_mem_wb.val_m
+            self.halted = False
+            new_if_id = PipelineRegister()
+            new_id_ex = PipelineRegister()
+            new_ex_mem = PipelineRegister()
+            events.append({'type': 'stall', 'msg': f'Return to 0x{new_mem_wb.val_m:03x}'})
+
+        # conditional jumps
         if not new_ex_mem.is_bubble and new_ex_mem.mnemonic in JUMP_MNEMONICS:
             if new_ex_mem.cnd:
                 self.pc = new_ex_mem.val_c
@@ -426,6 +435,16 @@ irmovq $20, %rbx
 addq %rax, %rbx
 halt
 """, {'%rax': 10, '%rbx': 30}),
+        ("call/ret", """
+irmovq $0x100, %rsp
+call add
+halt
+add:
+    irmovq $10, %rax
+    irmovq $20, %rbx
+    addq %rax, %rbx
+    ret
+""", {'%rax': 10, '%rbx': 30, '%rsp': 256}),
     ]
 
     for name, source, expected in tests:
@@ -438,4 +457,5 @@ halt
         if not ok:
             for k, v in expected.items():
                 actual = sim.registers[regs[k]]
-                print(f"  {k}: expected {v}, got {actual}")
+                if actual != v:
+                    print(f"  {k}: expected {v}, got {actual}")
