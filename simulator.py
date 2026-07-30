@@ -276,7 +276,7 @@ class Simulator:
         elif m == 'popq':
             self.write_reg(4, mem_wb.val_e)
             self.write_reg(mem_wb.dst_m, mem_wb.val_m)
-        # ret is handled in step()
+        # ret handled in step()
 
     def _forwarding_events(self, ex_mem, mem_wb):
         events = []
@@ -330,16 +330,13 @@ class Simulator:
         new_id_ex  = self.decode(self.if_id)
         new_if_id  = self.fetch()
 
-        # Priority: ret > call > conditional jump
         if not new_mem_wb.is_bubble and new_mem_wb.mnemonic == 'ret':
-            # Apply ret effects immediately and flush pipeline
             self.write_reg(4, new_mem_wb.val_e)
             ret_target = new_mem_wb.val_m
-            # Fetch exactly the return target instruction then stop
             self.pc = ret_target
             self.halted = False
             ret_fetch = self.fetch()
-            self.halted = True   # stop after this one instruction
+            self.halted = True
             new_if_id  = ret_fetch
             new_id_ex  = PipelineRegister()
             new_ex_mem = PipelineRegister()
@@ -413,14 +410,134 @@ class Simulator:
 
 if __name__ == '__main__':
     tests = [
-        ("pushq/popq", """
-irmovq $42, %rax
-irmovq $0x100, %rsp
-pushq %rax
-popq %rbx
+        # Basic ALU
+        ("addq forwarding", """
+irmovq $10, %rax
+irmovq $20, %rbx
+addq %rax, %rbx
 halt
-""", {'%rbx': 42, '%rsp': 256}),
-        ("loop", """
+""", {'%rax': 10, '%rbx': 30}),
+
+        ("subq", """
+irmovq $20, %rax
+irmovq $7, %rbx
+subq %rbx, %rax
+halt
+""", {'%rax': 13}),
+
+        ("andq", """
+irmovq $0xFF, %rax
+irmovq $0x0F, %rbx
+andq %rax, %rbx
+halt
+""", {'%rbx': 0x0F}),
+
+        ("xorq", """
+irmovq $0xFF, %rax
+irmovq $0x0F, %rbx
+xorq %rax, %rbx
+halt
+""", {'%rbx': 0xF0}),
+
+        ("xorq self clears", """
+irmovq $42, %rax
+xorq %rax, %rax
+halt
+""", {'%rax': 0}),
+
+        # Register moves
+        ("rrmovq chain", """
+irmovq $42, %rax
+rrmovq %rax, %rbx
+rrmovq %rbx, %rcx
+halt
+""", {'%rax': 42, '%rbx': 42, '%rcx': 42}),
+
+        # Memory
+        ("rmmovq/mrmovq roundtrip", """
+irmovq $0x200, %rsp
+irmovq $7, %rax
+rmmovq %rax, 0(%rsp)
+irmovq $0, %rax
+mrmovq 0(%rsp), %rax
+halt
+""", {'%rax': 7}),
+
+        ("multiple memory slots", """
+irmovq $0x200, %rsp
+irmovq $1, %rax
+irmovq $2, %rbx
+rmmovq %rax, 0(%rsp)
+rmmovq %rbx, 8(%rsp)
+mrmovq 0(%rsp), %rcx
+mrmovq 8(%rsp), %rdx
+halt
+""", {'%rcx': 1, '%rdx': 2}),
+
+        # Jumps
+        ("jmp unconditional", """
+jmp skip
+irmovq $99, %rax
+skip:
+irmovq $42, %rbx
+halt
+""", {'%rax': 0, '%rbx': 42}),
+
+        ("je taken", """
+irmovq $5, %rax
+irmovq $5, %rbx
+subq %rbx, %rax
+je equal
+irmovq $1, %rcx
+equal:
+irmovq $2, %rdx
+halt
+""", {'%rcx': 0, '%rdx': 2}),
+
+        ("jne taken", """
+irmovq $5, %rax
+irmovq $3, %rbx
+subq %rbx, %rax
+jne notequal
+irmovq $1, %rcx
+notequal:
+irmovq $2, %rdx
+halt
+""", {'%rcx': 0, '%rdx': 2}),
+
+        ("jne not taken", """
+irmovq $5, %rax
+irmovq $5, %rbx
+subq %rbx, %rax
+jne notequal
+irmovq $1, %rcx
+notequal:
+irmovq $2, %rdx
+halt
+""", {'%rcx': 1, '%rdx': 2}),
+
+        ("jle taken equal", """
+irmovq $5, %rax
+irmovq $5, %rbx
+subq %rbx, %rax
+jle done
+irmovq $99, %rcx
+done:
+halt
+""", {'%rcx': 0}),
+
+        ("jg taken", """
+irmovq $10, %rax
+irmovq $3, %rbx
+subq %rbx, %rax
+jg done
+irmovq $99, %rcx
+done:
+halt
+""", {'%rcx': 0}),
+
+        # Loops
+        ("sum 1 to 5", """
 irmovq $5, %rcx
 irmovq $0, %rax
 loop:
@@ -430,13 +547,50 @@ loop:
     jne loop
 halt
 """, {'%rax': 15}),
-        ("addq forwarding", """
+
+        ("countdown from 10", """
 irmovq $10, %rax
-irmovq $20, %rbx
-addq %rax, %rbx
+irmovq $1, %rbx
+loop:
+    subq %rbx, %rax
+    jne loop
 halt
-""", {'%rax': 10, '%rbx': 30}),
-        ("call/ret", """
+""", {'%rax': 0}),
+
+        ("multiply 4x5 by repeated addition", """
+irmovq $4, %rax
+irmovq $5, %rbx
+irmovq $0, %rcx
+loop:
+    addq %rax, %rcx
+    irmovq $1, %rdx
+    subq %rdx, %rbx
+    jne loop
+halt
+""", {'%rcx': 20}),
+
+        # Stack
+        ("pushq/popq", """
+irmovq $42, %rax
+irmovq $0x100, %rsp
+pushq %rax
+popq %rbx
+halt
+""", {'%rbx': 42, '%rsp': 256}),
+
+        ("push two pop two", """
+irmovq $0x200, %rsp
+irmovq $1, %rax
+irmovq $2, %rbx
+pushq %rax
+pushq %rbx
+popq %rcx
+popq %rdx
+halt
+""", {'%rcx': 2, '%rdx': 1, '%rsp': 0x200}),
+
+        # Call/ret
+        ("call/ret basic", """
 irmovq $0x100, %rsp
 call add
 halt
@@ -446,7 +600,8 @@ add:
     addq %rax, %rbx
     ret
 """, {'%rax': 10, '%rbx': 30, '%rsp': 256}),
-        ("call/ret double", """
+
+        ("call/ret short function", """
 irmovq $0x200, %rsp
 call double
 halt
@@ -455,17 +610,80 @@ double:
     addq %rax, %rax
     ret
 """, {'%rax': 20, '%rsp': 0x200}),
+
+        ("call/ret with argument in register", """
+irmovq $0x200, %rsp
+irmovq $7, %rdi
+call square
+halt
+square:
+    rrmovq %rdi, %rax
+    addq %rdi, %rax
+    ret
+""", {'%rax': 14, '%rsp': 0x200}),
+
+        # Fibonacci
+        ("fibonacci 8th term", """
+irmovq $0, %rax
+irmovq $1, %rbx
+irmovq $7, %rcx
+loop:
+    rrmovq %rbx, %rdx
+    addq %rax, %rbx
+    rrmovq %rdx, %rax
+    irmovq $1, %rsi
+    subq %rsi, %rcx
+    jne loop
+halt
+""", {'%rbx': 21}),
+
+        # Nop
+        ("nop does nothing", """
+irmovq $42, %rax
+nop
+nop
+nop
+halt
+""", {'%rax': 42}),
+
+        # Zero flag
+        ("zf set on zero result", """
+irmovq $5, %rax
+irmovq $5, %rbx
+subq %rbx, %rax
+je zero
+irmovq $1, %rcx
+zero:
+halt
+""", {'%rax': 0, '%rcx': 0}),
+
+        # Large immediate
+        ("large immediate value", """
+irmovq $1000, %rax
+irmovq $2000, %rbx
+addq %rax, %rbx
+halt
+""", {'%rbx': 3000}),
     ]
+
+    passed = 0
+    failed = 0
+    regs = {'%rax':0,'%rcx':1,'%rdx':2,'%rbx':3,'%rsp':4,'%rbp':5,'%rsi':6,'%rdi':7}
 
     for name, source, expected in tests:
         sim = Simulator(source)
         sim.run_all()
-        regs = {'%rax':0,'%rcx':1,'%rdx':2,'%rbx':3,'%rsp':4,'%rbp':5,'%rsi':6,'%rdi':7}
         ok = all(sim.registers[regs[k]] == v for k, v in expected.items())
         status = "PASS" if ok else "FAIL"
+        if ok:
+            passed += 1
+        else:
+            failed += 1
         print(f"{status}: {name} ({sim.cycle} cycles)")
         if not ok:
             for k, v in expected.items():
                 actual = sim.registers[regs[k]]
                 if actual != v:
                     print(f"  {k}: expected {v}, got {actual}")
+
+    print(f"\n{passed}/{passed+failed} tests passed")
