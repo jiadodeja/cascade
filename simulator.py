@@ -276,9 +276,7 @@ class Simulator:
         elif m == 'popq':
             self.write_reg(4, mem_wb.val_e)
             self.write_reg(mem_wb.dst_m, mem_wb.val_m)
-        elif m == 'ret':
-            self.write_reg(4, mem_wb.val_e)
-            self.pc = mem_wb.val_m
+        # ret is handled in step()
 
     def _forwarding_events(self, ex_mem, mem_wb):
         events = []
@@ -333,16 +331,21 @@ class Simulator:
         new_if_id  = self.fetch()
 
         # Priority: ret > call > conditional jump
-        # ret: return address known after memory stage — highest priority flush
         if not new_mem_wb.is_bubble and new_mem_wb.mnemonic == 'ret':
-            self.pc = new_mem_wb.val_m
+            # Apply ret effects immediately and flush pipeline
+            self.write_reg(4, new_mem_wb.val_e)
+            ret_target = new_mem_wb.val_m
+            # Fetch exactly the return target instruction then stop
+            self.pc = ret_target
             self.halted = False
-            new_if_id  = PipelineRegister()
+            ret_fetch = self.fetch()
+            self.halted = True   # stop after this one instruction
+            new_if_id  = ret_fetch
             new_id_ex  = PipelineRegister()
             new_ex_mem = PipelineRegister()
-            events.append({'type': 'stall', 'msg': f'Return to 0x{new_mem_wb.val_m:03x}'})
+            new_mem_wb = PipelineRegister()
+            events.append({'type': 'stall', 'msg': f'Return to 0x{ret_target:03x}'})
 
-        # call: redirect to function after execute
         elif not new_ex_mem.is_bubble and new_ex_mem.mnemonic == 'call':
             self.pc = new_ex_mem.val_c
             self.halted = False
@@ -350,7 +353,6 @@ class Simulator:
             new_id_ex = PipelineRegister()
             events.append({'type': 'stall', 'msg': f'Call to 0x{new_ex_mem.val_c:03x}. Flushing pipeline'})
 
-        # conditional jumps
         elif not new_ex_mem.is_bubble and new_ex_mem.mnemonic in JUMP_MNEMONICS:
             if new_ex_mem.cnd:
                 self.pc = new_ex_mem.val_c
@@ -461,7 +463,7 @@ double:
         regs = {'%rax':0,'%rcx':1,'%rdx':2,'%rbx':3,'%rsp':4,'%rbp':5,'%rsi':6,'%rdi':7}
         ok = all(sim.registers[regs[k]] == v for k, v in expected.items())
         status = "PASS" if ok else "FAIL"
-        print(f"{status}: {name}")
+        print(f"{status}: {name} ({sim.cycle} cycles)")
         if not ok:
             for k, v in expected.items():
                 actual = sim.registers[regs[k]]

@@ -10,7 +10,6 @@ from simulator import Simulator
 app = Flask(__name__)
 CORS(app)
 
-# Global simulator instance — one session at a time
 sim = None
 
 
@@ -70,6 +69,7 @@ def run_route():
         return jsonify({'success': False, 'error': 'No program loaded'}), 400
 
     sim.run_all()
+    print(f"[RUN] completed in {sim.cycle} cycles, halted={sim.halted}, rax={sim.registers[0]}, rsp={hex(sim.registers[4])}")
     return jsonify({
         'success': True,
         'state': sim.get_state()
